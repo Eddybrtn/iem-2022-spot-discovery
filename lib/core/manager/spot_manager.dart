@@ -1,11 +1,19 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:iem_2022_spot_discovery/core/manager/api_manager.dart';
+import 'package:iem_2022_spot_discovery/core/manager/database_manager.dart';
+import 'package:iem_2022_spot_discovery/core/model/comment.dart';
 import 'package:iem_2022_spot_discovery/core/model/spot.dart';
 
 class SpotManager {
-  List<Spot>? spots;
+  List<Spot>? _spots;
+
+  List<Spot> get spots => _spots ?? [];
+
+  List<Spot>? _favoriteSpots;
+
+  List<Spot> get favoriteSpots => _favoriteSpots ?? [];
 
   static final SpotManager _instance = SpotManager._internal();
 
@@ -13,28 +21,62 @@ class SpotManager {
 
   SpotManager._internal();
 
-  int get _spotListLength => spots?.length ?? 0;
+  int get _spotListLength => _spots?.length ?? 0;
 
-  /// Charge et renvoie la liste complète de spots depuis le fichier json local
-  Future<List<Spot>?> loadSpots(BuildContext context) async {
-    // Opening json file
-    var jsonString = await DefaultAssetBundle.of(context)
-        .loadString("assets/json/spots.json");
-    // Decoding json
-    var json = jsonDecode(jsonString);
-    // Mapping data
-    spots = List<Map<String, dynamic>>.from(json["data"])
-        .map((json) => Spot.fromJson(json))
-        .toList();
-    return spots;
+  /// Initialise les spots :
+  /// - Via l'API pour la liste complète
+  /// - Via la BDD pour les spots favoris
+  Future<bool> initData() async {
+    await Future.wait([loadAllSpots(), loadFavoriteSpots()]);
+    return true;
+  }
+
+  /// Charge et renvoie la liste complète de spots
+  Future<void> loadAllSpots() async {
+    // Calling API
+    try {
+      var response = await ApiManager().getAllSpots();
+      if (response.data != null) {
+        // Mapping data
+        _spots = List<Map<String, dynamic>>.from(response.data?["data"])
+            .map((json) => Spot.fromJson(json))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint("Erreur : $e");
+    }
+  }
+
+  Future<void> loadFavoriteSpots() async {
+    _favoriteSpots = await DatabaseManager().getFavoriteSpots();
+  }
+
+  bool isSpotFavorite(int idSpot) {
+    try {
+      return _favoriteSpots?.firstWhere((spot) => spot.id == idSpot) != null;
+    } catch (e) {
+      // Spot not found
+      return false;
+    }
+  }
+
+  Future<void> toggleFavorite(Spot spotToUpdate) async {
+    bool isFavorite = await DatabaseManager().isFavorite(spotToUpdate.id);
+    await DatabaseManager().toggleFavorite(isFavorite, spotToUpdate);
+    if (isFavorite) {
+      _favoriteSpots?.removeWhere((Spot spot) => spot.id == spotToUpdate.id);
+    } else {
+      _favoriteSpots ??= [];
+      _favoriteSpots?.add(spotToUpdate);
+    }
   }
 
   /// Renvoie un spot aléatoire de la liste pré-chargée
   Spot? getRandomSpot() {
-    if (spots?.isNotEmpty ?? false) {
+    if (_spots?.isNotEmpty ?? false) {
       var random = Random();
       int randomIndex = random.nextInt(_spotListLength - 1);
-      return spots?[randomIndex];
+      return _spots?[randomIndex];
     }
     return null;
   }
@@ -43,13 +85,13 @@ class SpotManager {
   /// [startIndex] est l'index de début de l'interval
   /// [endIndex] est l'index de fin de l'interval
   List<Spot>? getSomeSpots({int startIndex = 0, int endIndex = 15}) {
-    if ((spots?.isNotEmpty ?? false) &&
+    if ((_spots?.isNotEmpty ?? false) &&
         startIndex < _spotListLength &&
         startIndex < endIndex) {
       if (endIndex > _spotListLength) {
         endIndex = _spotListLength;
       }
-      return spots?.getRange(startIndex, endIndex).toList();
+      return _spots?.getRange(startIndex, endIndex).toList();
     }
     return null;
   }
@@ -58,13 +100,45 @@ class SpotManager {
   /// en paramètre
   List<Spot> getSpotsByName(String name) {
     List<Spot> matchingSpots = [];
-    if (spots?.isNotEmpty ?? false) {
-      for (Spot spot in spots ?? []) {
+    if (_spots?.isNotEmpty ?? false) {
+      for (Spot spot in _spots ?? []) {
         if (spot.title?.toLowerCase().contains(name.toLowerCase()) ?? false) {
           matchingSpots.add(spot);
         }
       }
     }
     return matchingSpots;
+  }
+
+  /// Récupère le détail d'un Spot
+  Future<Spot?> getSpotDetail(int idSpot) async {
+    Spot? spot;
+    try {
+      var response = await ApiManager().getSpot(idSpot);
+      if (response.data != null) {
+        spot = Spot.fromJson(response.data ?? {});
+      }
+    } catch (error) {
+      debugPrint("Erreur : $error}");
+    }
+    return spot;
+  }
+
+  /// Poste un commentaire sur un spot
+  Future<SpotComment?> sendComment(int idSpot, String comment) async {
+    try {
+      SpotComment spotComment = SpotComment(
+          comment: comment, createdAt: DateTime.now().millisecondsSinceEpoch);
+      var response = await ApiManager().postComment(idSpot, spotComment);
+      if (response.data != null) {
+        // Comment successfully sent
+        return spotComment;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Erreur : $e");
+      return null;
+    }
   }
 }

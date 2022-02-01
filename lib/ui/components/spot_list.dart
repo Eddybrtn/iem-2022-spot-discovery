@@ -1,26 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:iem_2022_spot_discovery/core/manager/spot_manager.dart';
 import 'package:iem_2022_spot_discovery/core/model/spot.dart';
 import 'package:iem_2022_spot_discovery/ui/components/image_placeholder.dart';
 import 'package:iem_2022_spot_discovery/ui/spot_detail.dart';
 
 class SpotList extends StatelessWidget {
   final List<Spot> spots;
+  final Function(Spot, bool)? onFavoriteChanged;
 
-  const SpotList(this.spots, {Key? key}) : super(key: key);
+  const SpotList({Key? key, required this.spots, this.onFavoriteChanged})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      shrinkWrap: true,
-      primary: false,
+    return spots.isNotEmpty ? ListView.builder(
       itemBuilder: (context, position) {
         Spot spot = spots[position];
         return InkWell(
-          onTap: () {
-            Navigator.of(context).pushNamed(SpotDetail.route,
+          onTap: () async {
+            bool oldFavorite = SpotManager().isSpotFavorite(spot.id);
+
+            var newFavorite = await Navigator.of(context).pushNamed(SpotDetail.route,
                 arguments: SpotDetailArguments(spot: spot));
+
+            if (newFavorite is bool && newFavorite != oldFavorite) {
+              onFavoriteChanged?.call(spot, false);
+            }
           },
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
                   width: 100,
@@ -47,15 +55,24 @@ class SpotList extends StatelessWidget {
                     const SizedBox(
                       height: 8,
                     ),
-                    Text("Catégorie : ${spot.mainCategory?.name ?? 'Inconnue'}")
+                    Text("Catégorie : ${spot.mainCategoryName() ?? 'Inconnue'}")
                   ],
                 ),
-              )
+              ),
+              IconButton(
+                icon: Icon(SpotManager().isSpotFavorite(spot.id)
+                    ? Icons.favorite
+                    : Icons.favorite_border),
+                onPressed: () {
+                  onFavoriteChanged?.call(spot, true);
+                },
+              ),
+              const SizedBox(width: 16,)
             ],
           ),
         );
       },
       itemCount: spots.length,
-    );
+    ) : const Center(child: Text('Aucun spot'),);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:iem_2022_spot_discovery/core/model/category.dart';
+import 'package:iem_2022_spot_discovery/core/model/comment.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'spot.g.dart';
@@ -18,6 +19,12 @@ class Spot {
   bool? isClosed;
   SpotCategory? mainCategory;
   List<SpotCategory>? tagsCategory;
+  String? description;
+  List<String>? imagesCollection;
+  @JsonKey(name: "comments")
+  Map<String, dynamic>? commentsMap;
+  @JsonKey(ignore: true)
+  List<SpotComment>? _commentList;
 
   Spot(
       {required this.id,
@@ -36,4 +43,24 @@ class Spot {
   factory Spot.fromJson(Map<String, dynamic> json) => _$SpotFromJson(json);
 
   Map<String, dynamic> toJson() => _$SpotToJson(this);
+
+  String? mainCategoryName() => mainCategory?.name ?? tagsCategory?[0].name;
+
+  @JsonKey(ignore: true)
+  List<SpotComment>? get comments => _commentList ?? parseComments();
+
+  set comments(List<SpotComment>? comments) {
+    _commentList = comments;
+  }
+
+  List<SpotComment>? parseComments() {
+    _commentList = [];
+    commentsMap?.forEach((key, value) {
+      _commentList?.add(SpotComment.fromJson(value));
+    });
+    _commentList?.sort((SpotComment a, SpotComment b) {
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return _commentList;
+  }
 }

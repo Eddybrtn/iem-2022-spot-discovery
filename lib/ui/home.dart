@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iem_2022_spot_discovery/core/manager/spot_manager.dart';
 import 'package:iem_2022_spot_discovery/core/model/spot.dart';
 import 'package:iem_2022_spot_discovery/ui/components/spot_list.dart';
+import 'package:iem_2022_spot_discovery/ui/pages/spot_list_page.dart';
 import 'package:iem_2022_spot_discovery/ui/spot_detail.dart';
 
 class HomePage extends StatefulWidget {
@@ -23,41 +24,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<Spot> filteredSpots = [];
-  final List<Spot> paginatedSpotList = [];
-  final TextEditingController searchController = TextEditingController();
-  final ScrollController scrollController = ScrollController();
-
-  int offset = 0;
-  bool isLoadingMore = false;
-
-  @override
-  void initState() {
-    searchController.addListener(() {
-      if (searchController.text.isNotEmpty) {
-        _searchSpots(searchController.text);
-      } else if (searchController.text.isEmpty && filteredSpots.isNotEmpty) {
-        _clearSearch();
-      }
-    });
-    scrollController.addListener(() {
-      if (scrollController.position.pixels >=
-              scrollController.position.maxScrollExtent &&
-          paginatedSpotList.length < (SpotManager().spots?.length ?? 0) &&
-          !isLoadingMore) {
-        isLoadingMore = true;
-        // Le bas de la liste est atteint et + de spots sont disponibles
-        setState(() {
-          paginatedSpotList.addAll(SpotManager()
-                  .getSomeSpots(startIndex: offset, endIndex: offset + 15) ??
-              []);
-          offset += 15;
-        });
-        isLoadingMore = false;
-      }
-    });
-    super.initState();
-  }
+  int _currentIndex = 0;
+  final PageController _pageController = PageController();
 
   @override
   Widget build(BuildContext context) {
@@ -67,90 +35,52 @@ class _HomePageState extends State<HomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the HomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: SingleChildScrollView(
-        controller: scrollController,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: searchController,
-                      decoration: const InputDecoration(
-                          hintText: "Rechercher...",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(6)),
-                          )),
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (term) {
-                        _searchSpots(term);
-                      },
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () {
-                      _searchSpots(searchController.text);
-                    },
-                  )
-                ],
-              ),
-            ),
-            filteredSpots.isNotEmpty
-                ? SpotList(filteredSpots)
-                : FutureBuilder(
-                    future: SpotManager().loadSpots(context),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        if (paginatedSpotList.isEmpty) {
-                          paginatedSpotList
-                              .addAll(SpotManager().getSomeSpots() ?? []);
-                          offset = paginatedSpotList.length;
-                        }
-                        return SpotList(paginatedSpotList);
-                      } else {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
-                    },
-                  ),
+        appBar: AppBar(
+          // Here we take the value from the HomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: Text(widget.title),
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const [
+            BottomNavigationBarItem(
+                label: "Liste",
+                icon: Icon(Icons.list),
+                activeIcon: Icon(
+                  Icons.list,
+                  color: Colors.blue,
+                )),
+            BottomNavigationBarItem(
+                label: "Favoris",
+                icon: Icon(Icons.favorite_border),
+                activeIcon: Icon(
+                  Icons.favorite,
+                  color: Colors.blue,
+                ))
           ],
+          currentIndex: _currentIndex,
+          onTap: (newIndex) {
+            setState(() {
+              _currentIndex = newIndex;
+            });
+            _pageController.animateToPage(_currentIndex,
+                duration: kThemeAnimationDuration, curve: Curves.ease);
+          },
         ),
-      ), // This
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Spot? randomSpot = SpotManager().getRandomSpot();
-          if (randomSpot != null) {
-            Navigator.of(context).pushNamed(SpotDetail.route,
-                arguments: SpotDetailArguments(spot: randomSpot));
-          }
-        },
-        child: const Icon(
-          Icons.shuffle,
-          color: Colors.white,
-        ),
-      ), // trailing comma makes auto-formatting nicer for build methods.
-    );
-  }
-
-  void _searchSpots(String term) {
-    setState(() {
-      filteredSpots.clear();
-      filteredSpots.addAll(SpotManager().getSpotsByName(term));
-    });
-  }
-
-  void _clearSearch() {
-    setState(() {
-      filteredSpots.clear();
-    });
+        body: FutureBuilder(
+          future: SpotManager().initData(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return PageView(
+                controller: _pageController,
+                children: const [
+                  SpotListPage(),
+                  SpotListPage(isFromFavorite: true)
+                ],
+              );
+            } else {
+              return const Center(child: CircularProgressIndicator(),);
+            }
+          },
+        ));
   }
 }
