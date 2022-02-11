@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iem_2022_spot_discovery/core/manager/spot_manager.dart';
-import 'package:iem_2022_spot_discovery/core/model/spot.dart';
-import 'package:iem_2022_spot_discovery/ui/components/spot_list.dart';
 import 'package:iem_2022_spot_discovery/ui/pages/spot_list_page.dart';
-import 'package:iem_2022_spot_discovery/ui/spot_detail.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key, required this.title}) : super(key: key);

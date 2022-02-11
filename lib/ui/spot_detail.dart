@@ -138,7 +138,7 @@ class _SpotDetailState extends State<SpotDetail> {
                         height: 16,
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 16),
+                        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
