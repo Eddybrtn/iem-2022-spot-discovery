@@ -52,21 +52,22 @@ class _SpotDetailState extends State<SpotDetail> {
             return Scaffold(
                 appBar: AppBar(
                   title: Text(spot.title ?? ''),
+                  actions: isFavorite != null
+                      ? [
+                          IconButton(
+                              onPressed: () async {
+                                bool currentlyFavorite = isFavorite ?? false;
+                                await SpotManager().toggleFavorite(spot);
+                                setState(() {
+                                  isFavorite = !currentlyFavorite;
+                                });
+                              },
+                              icon: Icon(isFavorite ?? false
+                                  ? Icons.favorite
+                                  : Icons.favorite_border))
+                        ]
+                      : null,
                 ),
-                floatingActionButton: isFavorite != null
-                    ? FloatingActionButton(
-                        onPressed: () async {
-                          bool currentlyFavorite = isFavorite ?? false;
-                          await SpotManager().toggleFavorite(spot);
-                          setState(() {
-                            isFavorite = !currentlyFavorite;
-                          });
-                        },
-                        child: Icon(isFavorite ?? false
-                            ? Icons.favorite
-                            : Icons.favorite_border),
-                      )
-                    : null,
                 body: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,7 +139,7 @@ class _SpotDetailState extends State<SpotDetail> {
                         height: 16,
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 80),
+                        padding: const EdgeInsets.only(left: 16, right: 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
